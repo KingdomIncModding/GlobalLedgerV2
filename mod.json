@@ -21,13 +21,13 @@
       "ui",
       "hd"
     ],
-    "latestTag": null
+    "latestTag": "v0.2.0"
   },
   "distribution": {
     "nexus": {
       "game": "kingdominc",
       "modId": 19,
-      "fileId": null,
+      "fileId": 8379906,
       "url": "https://www.nexusmods.com/kingdominc/mods/19",
       "requirements": [
         {
@@ -53,8 +53,8 @@
         "Utilities for Players"
       ],
       "tagsVerified": true,
-      "requirementsVerified": false,
-      "runtimeVersionId": null
+      "requirementsVerified": true,
+      "runtimeVersionId": "46785078755472"
     }
   },
   "development": {
@@ -67,8 +67,8 @@
     ]
   },
   "publishing": {
-    "githubReleases": false,
-    "nexusMods": false,
+    "githubReleases": "https://github.com/KingdomIncModding/GlobalLedgerV2/releases/tag/v0.2.0",
+    "nexusMods": "https://www.nexusmods.com/kingdominc/mods/19",
     "archivePreviousReleases": false
   }
 }

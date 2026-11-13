@@ -18,9 +18,9 @@ using UnityEngine;
 
 namespace KingdomGlobalLedgerV2.Verification
 {
-    [BepInPlugin("urakka.kingdominc.globalledgerv2.verification", "Global Ledger V2 Verification", "0.2.0")]
+    [BepInPlugin("urakka.kingdominc.globalledgerv2.verification", "Global Ledger V2 Verification", "0.2.1")]
     [BepInDependency(GlobalLedgerV2Plugin.Id)]
-    [BepInDependency("urakka.kingdominc.globalledger")]
+    [BepInDependency("urakka.kingdominc.globalledger", BepInDependency.DependencyFlags.SoftDependency)]
     public sealed class GlobalLedgerV2Verification : BaseUnityPlugin
     {
         readonly JsonArray checks = new JsonArray();
@@ -66,14 +66,14 @@ namespace KingdomGlobalLedgerV2.Verification
             try
             {
                 Check(original == null, "No user kingdom loaded");
-                Check(Chainloader.PluginInfos[GlobalLedgerV2Plugin.Id].Metadata.Version.ToString() == "0.2.0", "Separate Global Ledger V2 plugin loaded");
-                Check(Chainloader.PluginInfos["urakka.kingdominc.globalledger"].Metadata.Version.ToString() == "0.1.12", "Original Global Ledger loaded alongside Global Ledger V2");
-                baseline = new GlobalLedgerBaselineAdapter();
+                Check(Chainloader.PluginInfos[GlobalLedgerV2Plugin.Id].Metadata.Version.ToString() == "0.2.1", "Global Ledger HD 0.2.1 loaded");
+                VerifyEditionPriority();
+                if (Chainloader.PluginInfos.ContainsKey(GlobalLedgerEditionPriority.OriginalId)) baseline = new GlobalLedgerBaselineAdapter();
                 VerifyAccounting();
                 VerifyNativeCallbacks();
                 VerifyLocations();
                 VerifyBookWindows();
-                result["performance"] = Benchmark();
+                if (baseline != null) result["performance"] = Benchmark();
                 result["passed"] = true;
             }
             catch (Exception error)
@@ -83,6 +83,7 @@ namespace KingdomGlobalLedgerV2.Verification
             }
             finally
             {
+                baseline?.Dispose();
                 GamePlayer.Current = original;
                 Plugin.EnsurePlayer();
             }
@@ -109,6 +110,29 @@ namespace KingdomGlobalLedgerV2.Verification
             checks.Add(name);
         }
 
+        void VerifyEditionPriority()
+        {
+            const string id = GlobalLedgerEditionPriority.OriginalId;
+            Check(Plugin && Chainloader.PluginInfos["urakka.kingdominc.foundation"].Instance, "Unloading original preserves HD, Foundation and their shared manager");
+            Check(!FoundationApi.ModBar.Items.Any(item => item.ModId == id) && FoundationApi.ModBar.Items.Count(item => item.ModId == GlobalLedgerV2Plugin.Id) == 1,
+                "Only HD retains a ledger ModBar registration");
+            if (!Chainloader.PluginInfos.TryGetValue(id, out var info))
+            {
+                Check(true, "HD starts without the original installed");
+                return;
+            }
+            var type = info.Instance.GetType();
+            Check(!info.Instance && AccessTools.Field(type, "Instance").GetValue(null) == null, "HD unloads the original plugin before gameplay");
+            Check(((ICollection)AccessTools.Field(type, "hooks").GetValue(info.Instance)).Count == 0, "Original accounting and UI hooks are disposed");
+            var context = AccessTools.Field(type, "Context").GetValue(info.Instance);
+            Check((bool)AccessTools.Field(context.GetType(), "disposed").GetValue(context), "Original Foundation registrations are disposed");
+            Check(!Plugin.gameObject.GetComponents<MonoBehaviour>().Any(component => component && component.GetType().FullName == "KingdomGlobalLedger.LedgerNavigation"),
+                "Original navigation component is removed");
+            Check(File.Exists(info.Location), "Original installed DLL remains intact");
+            GlobalLedgerEditionPriority.UnloadOriginal(Logger);
+            Check(Plugin, "Repeated original-unload checks are harmless");
+        }
+
         FlowDiagram NewWorld()
         {
             var player = new GamePlayer();
@@ -116,7 +140,7 @@ namespace KingdomGlobalLedgerV2.Verification
             player.Flows.Add(flow);
             GamePlayer.Current = player;
             Plugin.EnsurePlayer();
-            baseline.Reset();
+            baseline?.Reset();
             return flow;
         }
 
@@ -126,14 +150,15 @@ namespace KingdomGlobalLedgerV2.Verification
         void Operation(FlowElement element, Action action)
         {
             var identity = Identity(element);
-            object old = baseline.Begin(identity);
+            object old = baseline?.Begin(identity);
             var current = GlobalLedgerObserver.Begin(identity);
             try { action(); }
-            finally { GlobalLedgerObserver.End(current); baseline.End(old); }
+            finally { GlobalLedgerObserver.End(current); baseline?.End(old); }
         }
 
         void Parity(string name)
         {
+            if (baseline == null) return;
             var old = baseline.Snapshot();
             var current = Plugin.Book.Snapshot().ToDictionary(total => total.Source.Id,
                 total => GlobalLedgerBaselineAdapter.Encode(total.Earned, total.Spent, total.ItemEarned, total.ItemSpent));

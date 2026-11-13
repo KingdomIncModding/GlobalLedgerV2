@@ -13,6 +13,7 @@ The original Global Ledger remains available as the main download on the [same N
 - Click the red **Global Ledger** ModBar button to show or hide the entire ledger. Close and Escape also dismiss it.
 - Search assets and sources, sort the results, show unlocked assets, or collapse expanded rows.
 - Use View buttons to find containers and buildings in your kingdom.
+- Hover over a shortened name for two seconds to scroll it horizontally. The text pauses at the end, returns smoothly, and resets when you move away; the amount columns stay fixed.
 
 ## Rates and money
 
@@ -40,7 +41,7 @@ The original Global Ledger remains available as the main download on the [same N
 
 The HD plugin installs to `BepInEx/plugins/GlobalLedgerV2/GlobalLedgerV2.dll`. BepInEx and Foundation are separate downloads.
 
-The original edition uses its own folder and settings. Both editions can coexist; enabling both gives you two ledger entries and two independent activity histories. The HD download does not remove or replace the original.
+**Use one edition at a time.** If both editions are installed, HD automatically unloads the original Global Ledger for that game session, including its button and accounting hooks. Only HD remains active. The original DLL, settings and Nexus downloads are preserved. Remove HD and restart the game to use the original again.
 
 ## Compatibility
 
@@ -61,7 +62,7 @@ Game integration is provided by Foundation. HD observes activity and changes its
 
 ## Removal
 
-Close the game and remove `BepInEx/plugins/GlobalLedgerV2/`. The original Global Ledger installation is separate.
+Close the game and remove `BepInEx/plugins/GlobalLedgerV2/`. If the original Global Ledger is still installed, it becomes active again on the next launch.
 
 ## Credits
 

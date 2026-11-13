@@ -7,10 +7,11 @@ using System.Reflection;
 using BepInEx.Bootstrap;
 using HarmonyLib;
 using KingdomFoundation.Api;
+using UnityEngine;
 
 namespace KingdomGlobalLedgerV2.Verification
 {
-    internal sealed class GlobalLedgerBaselineAdapter
+    internal sealed class GlobalLedgerBaselineAdapter : IDisposable
     {
         readonly Assembly assembly;
         readonly object plugin;
@@ -20,8 +21,11 @@ namespace KingdomGlobalLedgerV2.Verification
 
         internal GlobalLedgerBaselineAdapter()
         {
-            plugin = Chainloader.PluginInfos["urakka.kingdominc.globalledger"].Instance;
-            assembly = plugin.GetType().Assembly;
+            var type = Chainloader.PluginInfos["urakka.kingdominc.globalledger"].Instance.GetType();
+            // HD has already unloaded the installed original. Recreate it only in
+            // this isolated verification process for the accounting comparison.
+            plugin = GlobalLedgerV2Plugin.Instance.gameObject.AddComponent(type);
+            assembly = type.Assembly;
             totalsType = assembly.GetType("KingdomGlobalLedger.LedgerBookTotals");
             sourceType = assembly.GetType("KingdomGlobalLedger.LedgerBookSource");
             locationsType = assembly.GetType("KingdomGlobalLedger.LedgerLocations");
@@ -36,6 +40,7 @@ namespace KingdomGlobalLedgerV2.Verification
         }
 
         internal object Book => AccessTools.Field(plugin.GetType(), "Book").GetValue(plugin);
+        public void Dispose() => UnityEngine.Object.DestroyImmediate((Component)plugin);
         internal void Reset() => AccessTools.Method(Book.GetType(), "Reset").Invoke(Book, null);
 
         internal Dictionary<string, string> Snapshot()

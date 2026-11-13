@@ -1,4 +1,4 @@
-param([ValidatePattern('^[a-zA-Z0-9-]+$')][string]$RunName = 'initial', [switch]$Visual)
+param([ValidatePattern('^[a-zA-Z0-9-]+$')][string]$RunName = 'initial', [switch]$Visual, [switch]$WithoutOriginal)
 $ErrorActionPreference = 'Stop'
 $modRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
 $gameRoot = [IO.Path]::GetFullPath((Join-Path $modRoot '..\..'))
@@ -10,6 +10,7 @@ $sources = @(
     (Join-Path $modRoot 'Release\GlobalLedgerV2.dll'),
     (Join-Path $modRoot '_AI\Scratch\Verification\bin\netstandard2.1\GlobalLedgerV2.Verification.dll')
 )
+if ($WithoutOriginal) { $sources = @($sources | Where-Object { [IO.Path]::GetFileName($_) -ne 'GlobalLedger.dll' }) }
 foreach ($source in $sources) {
     if (-not (Test-Path -LiteralPath $source -PathType Leaf)) { throw "Missing verification input: $source" }
 }

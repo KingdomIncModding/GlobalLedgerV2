@@ -9,6 +9,7 @@ namespace KingdomGlobalLedgerV2
 {
     [BepInPlugin(Id, "Global Ledger V2", Version)]
     [BepInDependency("urakka.kingdominc.foundation", "0.14.2")]
+    [BepInDependency(GlobalLedgerEditionPriority.OriginalId, BepInDependency.DependencyFlags.SoftDependency)]
     public sealed class GlobalLedgerV2Plugin : BaseUnityPlugin
     {
         void Awake()
@@ -16,6 +17,7 @@ namespace KingdomGlobalLedgerV2
             Instance = this;
             try
             {
+                GlobalLedgerEditionPriority.UnloadOriginal(Logger);
                 Context = FoundationApi.ForMod(Id);
                 EnableRollingAverage = Config.Bind("Averages", "EnableRollingAverage", false, "Checking this box enables Rolling average .. makes the calculations less jumpy but not as accurate realtime.");
                 RollingAverageEntries = Config.Bind("Averages", "RollingAverageEntries", 3, "Number of entries to average when Rolling average is enabled.");
@@ -40,7 +42,7 @@ namespace KingdomGlobalLedgerV2
             }
         }
 
-        public const string Id = "urakka.kingdominc.globalledgerv2", Version = "0.2.0";
+        public const string Id = "urakka.kingdominc.globalledgerv2", Version = "0.2.1";
         internal static GlobalLedgerV2Plugin Instance;
         internal readonly GlobalLedgerBook Book = new GlobalLedgerBook(() => Time.realtimeSinceStartupAsDouble);
         internal readonly GlobalLedgerLocations Locations = new GlobalLedgerLocations();

@@ -1,7 +1,7 @@
 {
   "id": "GlobalLedgerV2",
   "name": "Global Ledger V2 - Cleaner Crisper HD",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "author": "Urakka",
   "description": "Cleaner, Crisper HD edition of Global Ledger for Kingdom Inc 1.0.14. A redesigned ledger with aligned In/Out/Net columns, compact controls, collapsible settings and native coin icons. Separate from the original Global Ledger, which remains available on the same Nexus page.",
   "repository": {

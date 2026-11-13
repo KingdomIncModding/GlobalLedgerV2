@@ -11,6 +11,8 @@ namespace KingdomGlobalLedgerV2
         internal readonly Button Button, ViewButton;
         readonly GlobalLedgerPanel owner;
         readonly TMP_Text label, arrow;
+        readonly RectTransform nameViewport;
+        readonly GlobalLedgerNameScroll nameScroll;
         readonly Image icon, shade, accent, divider;
         readonly GlobalLedgerRowHover hover;
         readonly GlobalLedgerRateCell income, outflow, net;
@@ -31,7 +33,12 @@ namespace KingdomGlobalLedgerV2
             accent = ui.Background(GlobalLedgerUi.Rect(Root, "Selection"), GlobalLedgerUi.Gold); accent.raycastTarget = false;
             arrow = ui.Text(Root, "Expander", "", 24); arrow.color = GlobalLedgerUi.Gold; arrow.alignment = TextAlignmentOptions.Center;
             icon = GlobalLedgerUi.Rect(Root, "AssetIcon").gameObject.AddComponent<Image>(); icon.preserveAspect = true; icon.raycastTarget = false;
-            label = ui.Text(Root, "Name", "", 16);
+            nameViewport = GlobalLedgerUi.Rect(Root, "NameViewport");
+            ui.Background(nameViewport, Color.clear);
+            nameViewport.gameObject.AddComponent<RectMask2D>();
+            label = ui.Text(nameViewport, "Name", "", 16);
+            nameScroll = nameViewport.gameObject.AddComponent<GlobalLedgerNameScroll>();
+            nameScroll.Initialize(label);
             income = new GlobalLedgerRateCell(ui, Root, "In"); outflow = new GlobalLedgerRateCell(ui, Root, "Out"); net = new GlobalLedgerRateCell(ui, Root, "Net");
             ViewButton = ui.Button(Root, "View", "↗", () => { if (data?.Target != null) owner.View(data); }, 16);
             var viewImage = ViewButton.GetComponent<Image>(); viewImage.color = Color.white; viewImage.sprite = owner.Design.Asset("Button03"); viewImage.type = Image.Type.Sliced; viewImage.pixelsPerUnitMultiplier = 1;
@@ -53,7 +60,7 @@ namespace KingdomGlobalLedgerV2
             data = value; Root.name = value.Key; Root.gameObject.SetActive(true);
             bool selected = owner.SelectedKey == value.Key;
             divider.gameObject.SetActive(!value.IsHeader);
-            label.text = value.IconOnly ? "" : value.Label;
+            nameScroll.Bind(value.Key, value.IconOnly ? "" : value.Label);
             label.color = value.IsHeader || selected ? GlobalLedgerUi.Gold : GlobalLedgerUi.Paper;
             label.fontSize = value.IsHeader ? 12 : 16;
             shade.color = GlobalLedgerDesign.Color(value.IsHeader ? "#343d32" : selected ? "#394437" : index % 2 == 0 ? "#302c30" : "#29262b");
@@ -73,7 +80,7 @@ namespace KingdomGlobalLedgerV2
             float height = data.IsHeader ? 28 : 48;
             GlobalLedgerUi.Place(Root, 0, data.Top, width, height);
             GlobalLedgerUi.Place(accent.rectTransform, 0, 0, 3, height);
-            if (data.IsHeader) { GlobalLedgerUi.Place(label.rectTransform, 16, 0, width - 32, height); return; }
+            if (data.IsHeader) { GlobalLedgerUi.Place(nameViewport, 16, 0, width - 32, height); nameScroll.Layout(); return; }
             bool basic = owner.Mode == GlobalLedgerPanel.ViewMode.Basic;
             float left = basic ? 16 : 12 + data.Depth * 26;
             GlobalLedgerUi.Place(arrow.rectTransform, left - 5, 10, 24, 28);
@@ -84,7 +91,8 @@ namespace KingdomGlobalLedgerV2
             float textX = basic ? 52 : data.Depth == 0 ? 72 : 72 + data.Depth * 26;
             // Container/building icons remain visible without shifting the shared amount columns.
             if (data.Depth > 0 && icon.enabled) textX = Mathf.Max(textX, iconX + 32);
-            GlobalLedgerUi.Place(label.rectTransform, textX, 0, Mathf.Max(30, GlobalLedgerDesign.IncomeX - textX), height);
+            GlobalLedgerUi.Place(nameViewport, textX, 0, Mathf.Max(30, GlobalLedgerDesign.IncomeX - textX), height);
+            nameScroll.Layout();
             GlobalLedgerUi.Place((RectTransform)ViewButton.transform, GlobalLedgerDesign.ViewX, 11, 48, 26);
         }
     }

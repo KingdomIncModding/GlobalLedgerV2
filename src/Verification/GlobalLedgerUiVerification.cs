@@ -49,6 +49,17 @@ namespace KingdomGlobalLedgerV2.Verification
             yield return new WaitForSecondsRealtime(.5f);
             Try(() => Capture("advanced-1920.png"));
             yield return new WaitForSecondsRealtime(1);
+            Try(VerifyNameScrolling);
+            Try(() =>
+            {
+                var name = ScrollingFixture();
+                name.Bind("scroll-preview", "01 FOREST DEFENSE - Eastern Frontier War Effort and Production");
+                name.OnPointerEnter(null);
+            });
+            yield return new WaitForSecondsRealtime(3);
+            Try(() => Capture("hover-name-scroll.png"));
+            yield return new WaitForSecondsRealtime(.3f);
+            Try(() => { ScrollingFixture().OnPointerExit(null); panel.RefreshNow(); });
             Try(VerifyCollapsedControls);
             yield return new WaitForSecondsRealtime(.3f);
             Try(() => Capture("advanced-collapsed-1920.png"));
@@ -115,6 +126,62 @@ namespace KingdomGlobalLedgerV2.Verification
             // Disable only the anchor visibility watchdog in this synthetic scene.
             panel.enabled = false;
         }
+        GlobalLedgerNameScroll ScrollingFixture() => panel.Scroller.content.GetComponentsInChildren<GlobalLedgerNameScroll>()
+            .First(value => ((RectTransform)value.transform).rect.width < 300);
+
+        void VerifyNameScrolling()
+        {
+            var name = ScrollingFixture();
+            var label = name.GetComponentInChildren<TMP_Text>();
+            var rect = (RectTransform)name.transform;
+            var position = rect.anchoredPosition;
+            var size = rect.sizeDelta;
+            name.enabled = false;
+            const string full = "01 FOREST DEFENSE - Eastern Frontier War Effort and Production";
+            try
+            {
+                Check(name.GetComponent<RectMask2D>() && name.GetComponent<Image>().raycastTarget, "Names have a clipped, pointer-sensitive viewport");
+                name.Bind("scroll-fixture", full);
+                name.OnPointerEnter(null);
+                name.Advance(1.9f);
+                label.ForceMeshUpdate();
+                Check(label.overflowMode == TextOverflowModes.Ellipsis && label.rectTransform.anchoredPosition == Vector2.zero && label.isTextTruncated,
+                    "Long names remain ellipsized during the two-second hover delay");
+                name.Advance(1.1f);
+                Check(label.text == full && label.overflowMode == TextOverflowModes.Overflow && Mathf.Abs(label.rectTransform.anchoredPosition.x + 32) < .1f,
+                    "Hovered names scroll horizontally at a readable speed after two seconds");
+                float offset = label.rectTransform.anchoredPosition.x;
+                name.Bind("scroll-fixture", full); name.Layout();
+                Check(label.rectTransform.anchoredPosition.x == offset, "Unchanged refreshes preserve the current name-scroll position");
+                Check(rect.anchoredPosition == position && rect.sizeDelta == size && label.rectTransform.rect.width > rect.rect.width,
+                    "Scrolling leaves the name column and amount columns fixed");
+                float distance = label.GetPreferredValues(full, Mathf.Infinity, Mathf.Infinity).x - rect.rect.width;
+                float travel = distance / GlobalLedgerNameScroll.Speed;
+                name.OnPointerExit(null); name.OnPointerEnter(null);
+                name.Advance(GlobalLedgerNameScroll.HoverDelay + travel + .5f);
+                Check(Mathf.Abs(label.rectTransform.anchoredPosition.x + distance) < .1f, "Name scrolling pauses with the final characters visible");
+                name.Advance(GlobalLedgerNameScroll.EndPause);
+                Check(label.rectTransform.anchoredPosition.x > -distance, "Names return smoothly after the end pause");
+                name.OnPointerExit(null);
+                Check(label.overflowMode == TextOverflowModes.Ellipsis && label.rectTransform.anchoredPosition == Vector2.zero && label.rectTransform.rect.width == rect.rect.width,
+                    "Pointer exit immediately restores the ellipsis and original position");
+                name.Advance(10);
+                Check(label.rectTransform.anchoredPosition == Vector2.zero, "Names remain still when not hovered");
+                name.OnPointerEnter(null); name.Advance(3);
+                name.Bind("recycled-row", full);
+                Check(label.overflowMode == TextOverflowModes.Ellipsis && label.rectTransform.anchoredPosition == Vector2.zero,
+                    "Recycled rows restart the hover delay for their new identity");
+                name.OnPointerExit(null); name.Bind("short-row", "Ore"); name.OnPointerEnter(null); name.Advance(10);
+                Check(label.overflowMode == TextOverflowModes.Ellipsis && label.rectTransform.anchoredPosition == Vector2.zero,
+                    "Names that fit do not scroll");
+                name.Bind("scroll-fixture", full); name.Advance(3);
+                name.SendMessage("OnDisable");
+                Check(label.overflowMode == TextOverflowModes.Ellipsis && label.rectTransform.anchoredPosition == Vector2.zero,
+                    "Hidden rows reset their scrolling state");
+            }
+            finally { name.OnPointerExit(null); name.enabled = true; panel.RefreshNow(); }
+        }
+
         void VerifyBasic()
         {
             Check(panel.Frame.sizeDelta == new Vector2(816, 856), "Slim window is 816 by 856");

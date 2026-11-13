@@ -9,7 +9,7 @@
     "owner": "KingdomIncModding",
     "name": "GlobalLedgerV2",
     "url": "https://github.com/KingdomIncModding/GlobalLedgerV2",
-    "branch": null,
+    "branch": "main",
     "visibility": "public",
     "topics": [
       "kingdom-inc",

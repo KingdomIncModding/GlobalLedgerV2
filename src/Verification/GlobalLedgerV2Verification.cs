@@ -18,7 +18,7 @@ using UnityEngine;
 
 namespace KingdomGlobalLedgerV2.Verification
 {
-    [BepInPlugin("urakka.kingdominc.globalledgerv2.verification", "Global Ledger V2 Verification", "0.2.1")]
+    [BepInPlugin("urakka.kingdominc.globalledgerv2.verification", "Global Ledger V2 Verification", GlobalLedgerV2Plugin.Version)]
     [BepInDependency(GlobalLedgerV2Plugin.Id)]
     [BepInDependency("urakka.kingdominc.globalledger", BepInDependency.DependencyFlags.SoftDependency)]
     public sealed class GlobalLedgerV2Verification : BaseUnityPlugin
@@ -66,13 +66,14 @@ namespace KingdomGlobalLedgerV2.Verification
             try
             {
                 Check(original == null, "No user kingdom loaded");
-                Check(Chainloader.PluginInfos[GlobalLedgerV2Plugin.Id].Metadata.Version.ToString() == "0.2.1", "Global Ledger HD 0.2.1 loaded");
+                Check(Chainloader.PluginInfos[GlobalLedgerV2Plugin.Id].Metadata.Version.ToString() == GlobalLedgerV2Plugin.Version, "Global Ledger HD " + GlobalLedgerV2Plugin.Version + " loaded");
                 VerifyEditionPriority();
                 if (Chainloader.PluginInfos.ContainsKey(GlobalLedgerEditionPriority.OriginalId)) baseline = new GlobalLedgerBaselineAdapter();
                 VerifyAccounting();
                 VerifyNativeCallbacks();
                 VerifyLocations();
                 VerifyBookWindows();
+                GlobalLedgerV2IssueRegressionVerification.Run(Plugin, result, Check);
                 if (baseline != null) result["performance"] = Benchmark();
                 result["passed"] = true;
             }
@@ -92,6 +93,15 @@ namespace KingdomGlobalLedgerV2.Verification
                 var visuals = new GlobalLedgerUiVerification();
                 yield return visuals.Run(output, checks);
                 if (!visuals.Passed) { result["passed"] = false; result["visualFailure"] = visuals.Failure; }
+            }
+            try
+            {
+                GlobalLedgerV2IssueRegressionVerification.VerifyInitRollbackBeforeHandover(Plugin, Check);
+            }
+            catch (Exception error)
+            {
+                result["passed"] = false;
+                result["rollbackFailure"] = error.ToString();
             }
             result["checks"] = checks;
             result["errors"] = new JsonArray(errors.Select(error => (JsonValue)error).ToArray());
@@ -161,7 +171,7 @@ namespace KingdomGlobalLedgerV2.Verification
             if (baseline == null) return;
             var old = baseline.Snapshot();
             var current = Plugin.Book.Snapshot().ToDictionary(total => total.Source.Id,
-                total => GlobalLedgerBaselineAdapter.Encode(total.Earned, total.Spent, total.ItemEarned, total.ItemSpent));
+                GlobalLedgerBaselineAdapter.Encode);
             Check(old.Count == current.Count && old.All(pair => current.TryGetValue(pair.Key, out var value) && value == pair.Value), name);
         }
 
@@ -171,10 +181,10 @@ namespace KingdomGlobalLedgerV2.Verification
             var shop = new Shop { MaxGold = 10000 };
             flow.Elements.Add(shop);
             Operation(shop, () => shop.CollectedGold += 125);
-            Check(Plugin.Book.Snapshot().Single().Earned[0] == 125, "Sale records uncollected till income");
+            Check(Plugin.Book.Snapshot().Single().EarnedAt(0) == 125m, "Sale records uncollected till income");
             Parity("Till income matches original Global Ledger");
             Operation(shop, () => { shop.CollectedGold -= 125; GamePlayer.Current.AddCurrency(Currency.Gold, 125, true); });
-            Check(Plugin.Book.Snapshot().Single().Earned[0] == 125, "Collection transfers income without counting it twice");
+            Check(Plugin.Book.Snapshot().Single().EarnedAt(0) == 125m, "Collection transfers income without counting it twice");
             Parity("Collection accounting matches original Global Ledger");
 
             var machine = new GlobalLedgerFixtureNode();
@@ -187,7 +197,7 @@ namespace KingdomGlobalLedgerV2.Verification
                 Check(!GamePlayer.Current.SpendCurrency(Currency.Mana, 1000000), "Failed spend exercised");
             });
             var machineTotal = Plugin.Book.Snapshot().Single(total => total.Source.Id == machine.Guid);
-            Check(machineTotal.Earned[4] == 50 && machineTotal.Spent[4] == 20, "Currency callbacks attribute successful operations to the active building");
+            Check(machineTotal.EarnedAt(4) == 50m && machineTotal.SpentAt(4) == 20m, "Currency callbacks attribute successful operations to the active building");
             Parity("Income and spending match original Global Ledger");
 
             var producer = new GlobalLedgerFixtureNode { Kind = "DevSpawner" };

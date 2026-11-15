@@ -31,12 +31,12 @@ namespace KingdomGlobalLedgerV2
             var image = GlobalLedgerUi.Rect(parent, name).gameObject.AddComponent<Image>();
             image.preserveAspect = true; image.raycastTarget = false; return image;
         }
-        internal void Bind(GlobalLedgerRowData row, long value, bool net, GlobalLedgerPanel owner, float x, float width)
+        internal void Bind(GlobalLedgerRowData row, decimal value, bool net, GlobalLedgerPanel owner, float x, float width)
         {
             bool visible = !row.IsHeader && (row.GameCurrency.HasValue || row.Item != null);
             root.gameObject.SetActive(visible); if (!visible) return;
             GlobalLedgerUi.Place(root, x, 0, width, 48);
-            var color = net ? value > 0 ? GlobalLedgerUi.Gain : value < 0 ? GlobalLedgerUi.Loss : GlobalLedgerUi.Muted : GlobalLedgerUi.Paper;
+            var color = net ? value > 0m ? GlobalLedgerUi.Gain : value < 0m ? GlobalLedgerUi.Loss : GlobalLedgerUi.Muted : GlobalLedgerUi.Paper;
             bool gold = row.GameCurrency == GameCurrency.Gold;
             coins.gameObject.SetActive(gold); amount.gameObject.SetActive(!gold); icon.gameObject.SetActive(!gold);
             if (gold) { BindGold(value, net, owner, width + 40, color); return; }
@@ -47,20 +47,20 @@ namespace KingdomGlobalLedgerV2
             icon.sprite = row.GameCurrency.HasValue ? row.GameCurrency.Value.GetIcon() : row.Item.GetIcon();
             GlobalLedgerUi.Place(icon.rectTransform, width - 18, 15, 18, 18);
         }
-        void BindGold(long value, bool net, GlobalLedgerPanel owner, float width, Color color)
+        void BindGold(decimal value, bool net, GlobalLedgerPanel owner, float width, Color color)
         {
-            long scaled = (long)System.Math.Round(owner.Rate(value));
-            var parts = GlobalLedgerUi.SplitGoldCompact(scaled);
-            long[] values = { parts.Gold, parts.Silver, parts.Copper };
+            decimal scaled = GlobalLedgerMath.RoundWhole(owner.RateDecimal(value));
+            var parts = GlobalLedgerUi.SplitGoldCompactDecimal(scaled);
+            decimal[] values = { parts.Gold, parts.Silver, parts.Copper };
             Sprite[] sprites = { owner.Design.Asset("Icons_8"), owner.Design.Asset("Icons_9"), owner.Design.Asset("Icons_10") };
-            bool[] shown = { parts.Gold != 0, parts.Silver != 0 || parts.Gold != 0, parts.Gold == 0 };
+            bool[] shown = { parts.Gold != 0m, parts.Silver != 0m || parts.Gold != 0m, parts.Gold == 0m };
             int first = shown[0] ? 0 : shown[1] ? 1 : 2;
             int last = shown[2] ? 2 : 1;
             float total = 0;
             for (int i = 0; i < 3; i++)
             {
                 coinText[i].gameObject.SetActive(shown[i]); coinIcon[i].gameObject.SetActive(shown[i]); if (!shown[i]) continue;
-                coinText[i].text = (i == first ? scaled < 0 ? "-" : net && scaled > 0 ? "+" : "" : "") + values[i].ToString("#,0", CultureInfo.InvariantCulture);
+                coinText[i].text = (i == first ? scaled < 0m ? "-" : net && scaled > 0m ? "+" : "" : "") + values[i].ToString("#,0", CultureInfo.InvariantCulture);
                 coinText[i].color = color; coinText[i].fontSize = net ? 17 : 16;
                 coinIcon[i].sprite = sprites[i];
                 total += coinText[i].GetPreferredValues().x + 19 + (i == last ? 0 : 6);

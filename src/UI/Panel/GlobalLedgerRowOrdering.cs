@@ -29,8 +29,8 @@ namespace KingdomGlobalLedgerV2
                 int compare;
                 if (field >= 2)
                 {
-                    long av = field == 2 ? a.Root.Income : field == 3 ? a.Root.Outflow : a.Root.Amount;
-                    long bv = field == 2 ? b.Root.Income : field == 3 ? b.Root.Outflow : b.Root.Amount;
+                    decimal av = field == 2 ? a.Root.Income : field == 3 ? a.Root.Outflow : a.Root.Amount;
+                    decimal bv = field == 2 ? b.Root.Income : field == 3 ? b.Root.Outflow : b.Root.Amount;
                     compare = av.CompareTo(bv);
                 }
                 else if (field == 0 && a.Root.Depth == 0 && a.Root.GameCurrency.HasValue && b.Root.GameCurrency.HasValue)

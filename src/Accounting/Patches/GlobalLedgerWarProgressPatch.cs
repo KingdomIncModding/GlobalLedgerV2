@@ -1,20 +1,17 @@
 using KingdomFoundation.Api;
 using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
-using System.Text.RegularExpressions;
 
 namespace KingdomGlobalLedgerV2
 {
     static class GlobalLedgerWarProgressPatch
     {
         static GameWarProgress activeWar;
-        static long warMedals;
+        static decimal warMedals;
         internal static Exception Finalizer(Exception __exception)
         {
             activeWar = null;
-            warMedals = 0;
+            warMedals = 0m;
             return __exception;
         }
 
@@ -22,7 +19,7 @@ namespace KingdomGlobalLedgerV2
         {
             try
             {
-                if (warMedals > 0 && GlobalLedgerV2Plugin.Instance?.Book != null && FoundationApi.Kingdom != null)
+                if (warMedals > 0m && GlobalLedgerV2Plugin.Instance?.Book != null && FoundationApi.Kingdom != null)
                 {
                     var war = __instance.War;
                     var allWarEfforts = GlobalLedgerV2Plugin.Instance.Locations.AllFlows().SelectMany(f => f.Buildings.Where(element => element.TypeId == "WarEffort")).ToList();
@@ -31,15 +28,15 @@ namespace KingdomGlobalLedgerV2
                     {
                         var connected = warEfforts.Where(w => w.Inputs != null && w.Inputs.Count > 0 && w.Inputs[0].ConnectedPipe != null).ToList();
                         var targets = connected.Count > 0 ? connected : warEfforts;
-                        long baseShare = warMedals / targets.Count;
-                        long remainder = warMedals % targets.Count;
+                        decimal baseShare = Math.Floor(warMedals / targets.Count);
+                        decimal remainder = warMedals - baseShare * targets.Count;
                         for (int i = 0; i < targets.Count; i++)
                         {
-                            long share = baseShare + (i < remainder ? 1 : 0);
-                            if (share > 0)
+                            decimal share = baseShare + (i < remainder ? 1m : 0m);
+                            if (share > 0m)
                             {
                                 var source = GlobalLedgerObserver.Describe(targets[i]);
-                                GlobalLedgerV2Plugin.Instance.Book.Record(source, GameCurrency.Medal, share, 0);
+                                GlobalLedgerV2Plugin.Instance.Book.Record(source, GameCurrency.Medal, share, 0m);
                             }
                         }
                     }
@@ -48,28 +45,28 @@ namespace KingdomGlobalLedgerV2
                         string warName = FoundationApi.GameInfo.Translate(war.DisplayName);
                         if (string.IsNullOrEmpty(warName) || warName.StartsWith("@"))
                             warName = war.DisplayName ?? war.Identifier;
-                        var source = new GlobalLedgerBookSource("war_" + war.Identifier, "War", warName, warName);
-                        GlobalLedgerV2Plugin.Instance.Book.Record(source, GameCurrency.Medal, warMedals, 0);
+                        var source = new GlobalLedgerBookSource("war_" + war.Identifier, "War", warName, warName, GlobalLedgerLocations.CurrentLocale, war.DisplayName);
+                        GlobalLedgerV2Plugin.Instance.Book.Record(source, GameCurrency.Medal, warMedals, 0m);
                     }
                 }
             }
             finally
             {
                 activeWar = null;
-                warMedals = 0;
+                warMedals = 0m;
             }
         }
 
         internal static void Prefix(GameWarProgress __instance)
         {
             activeWar = __instance;
-            warMedals = 0;
+            warMedals = 0m;
         }
 
         internal static void RecordIncome(GameCurrency c, long amt)
         {
             if (activeWar != null && c == GameCurrency.Medal && amt > 0)
-                warMedals += amt;
+                warMedals = GlobalLedgerMath.AddSaturated(warMedals, amt);
         }
     }
 }

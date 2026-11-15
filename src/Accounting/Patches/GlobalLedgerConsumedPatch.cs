@@ -1,9 +1,5 @@
 using KingdomFoundation.Api;
-using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
-using System.Text.RegularExpressions;
 
 namespace KingdomGlobalLedgerV2
 {
@@ -13,6 +9,8 @@ namespace KingdomGlobalLedgerV2
         {
             if (element.Production.IsRecipe)
                 return inputIndex != 0 || !element.Production.HasEnhancementResult;
+            if (element.Behaviour != null)
+                return true;
             switch (element.TypeId)
             {
                 case "Shop":
@@ -50,7 +48,12 @@ namespace KingdomGlobalLedgerV2
             }
 
             if (IsConsumedInput(element, index, __result))
-                GlobalLedgerObserver.AddCount(GlobalLedgerObserver.current.Consumed, __result.Type.Identifier, 1);
+            {
+                if (GlobalLedgerObserver.current.CustomNode)
+                    GlobalLedgerObserver.current.ConsumedCandidates.Add(__result);
+                else
+                    GlobalLedgerObserver.AddCount(GlobalLedgerObserver.current.Consumed, __result.Type.Identifier, 1);
+            }
         }
     }
 }

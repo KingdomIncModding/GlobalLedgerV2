@@ -20,7 +20,7 @@ namespace KingdomGlobalLedgerV2
             else RefreshNow();
         }
 
-        GlobalLedgerRowData Add(string key, string label, int depth, GameCurrency currency, long amount, bool expandable, long income = 0, long outflow = 0)
+        GlobalLedgerRowData Add(string key, string label, int depth, GameCurrency currency, decimal amount, bool expandable, decimal income = 0, decimal outflow = 0)
         {
             var row = new GlobalLedgerRowData(key, label, depth)
             {
@@ -36,7 +36,7 @@ namespace KingdomGlobalLedgerV2
             return row;
         }
 
-        GlobalLedgerRowData AddItem(string key, string label, int depth, GameItemType item, long amount, bool expandable, long income = 0, long outflow = 0)
+        GlobalLedgerRowData AddItem(string key, string label, int depth, GameItemType item, decimal amount, bool expandable, decimal income = 0, decimal outflow = 0)
         {
             var row = new GlobalLedgerRowData(key, label, depth)
             {
@@ -76,13 +76,13 @@ namespace KingdomGlobalLedgerV2
                         continue;
                 }
 
-                long net = currentTotals.Where(t => t.Active(c)).Sum(t => t.Net(c));
+                decimal net = GlobalLedgerMath.Sum(currentTotals.Where(t => t.Active(c)), t => t.Net(c));
                 var row = new GlobalLedgerRowData("basic/currency/" + c, GlobalLedgerUi.CurrencyName(currency), 1)
                 {
                     GameCurrency = currency,
                     Amount = net,
-                    Income = currentTotals.Sum(t => t.Earned[c]),
-                    Outflow = currentTotals.Sum(t => t.Spent[c]),
+                    Income = GlobalLedgerMath.Sum(currentTotals, t => t.EarnedAt(c)),
+                    Outflow = GlobalLedgerMath.Sum(currentTotals, t => t.SpentAt(c)),
                     Expandable = false,
                     Icon = currency.GetIcon()
                 };
@@ -118,13 +118,13 @@ namespace KingdomGlobalLedgerV2
                         continue;
                 }
 
-                long net = currentTotals.Where(t => t.ItemActive(id)).Sum(t => t.ItemNet(id));
+                decimal net = GlobalLedgerMath.Sum(currentTotals.Where(t => t.ItemActive(id)), t => t.ItemNet(id));
                 var row = new GlobalLedgerRowData("basic/item/" + id, GlobalLedgerUi.ItemName(item), 1)
                 {
                     Item = item,
                     Amount = net,
-                    Income = currentTotals.Sum(t => t.ItemProduced(id)),
-                    Outflow = currentTotals.Sum(t => t.ItemConsumed(id)),
+                    Income = GlobalLedgerMath.Sum(currentTotals, t => t.ItemProduced(id)),
+                    Outflow = GlobalLedgerMath.Sum(currentTotals, t => t.ItemConsumed(id)),
                     Expandable = false,
                     Icon = item.GetIcon()
                 };
@@ -151,7 +151,7 @@ namespace KingdomGlobalLedgerV2
                 if (!showAll && !book.HasCurrencyActivity(c) && currency != GameCurrency.Gold) continue;
                 string root = "currency/" + c;
                 var active = data.Where(t => t.Totals.Active(c)).ToArray();
-                Add(root, GlobalLedgerUi.CurrencyName(currency), 0, currency, active.Sum(t => t.Totals.Net(c)), true, active.Sum(t => t.Totals.Earned[c]), active.Sum(t => t.Totals.Spent[c]));
+                Add(root, GlobalLedgerUi.CurrencyName(currency), 0, currency, GlobalLedgerMath.Sum(active, t => t.Totals.Net(c)), true, GlobalLedgerMath.Sum(active, t => t.Totals.EarnedAt(c)), GlobalLedgerMath.Sum(active, t => t.Totals.SpentAt(c)));
                 if (!expanded.Contains(root) && string.IsNullOrEmpty(search))
                     continue;
                 if (active.Length == 0)
@@ -164,7 +164,7 @@ namespace KingdomGlobalLedgerV2
                 {
                     string groupKey = root + "/" + group.Key;
                     var container = group.First();
-                    var containerRow = Add(groupKey, container.GroupName, 1, currency, group.Sum(t => t.Totals.Net(c)), true, group.Sum(t => t.Totals.Earned[c]), group.Sum(t => t.Totals.Spent[c]));
+                    var containerRow = Add(groupKey, container.GroupName, 1, currency, GlobalLedgerMath.Sum(group, t => t.Totals.Net(c)), true, GlobalLedgerMath.Sum(group, t => t.Totals.EarnedAt(c)), GlobalLedgerMath.Sum(group, t => t.Totals.SpentAt(c)));
                     containerRow.PrefixIcon = container.GroupTarget != null ? GlobalLedgerLocations.ContainerIcon() : null;
                     containerRow.Icon = container.GroupIcon;
                     containerRow.Target = container.GroupTarget;
@@ -174,7 +174,7 @@ namespace KingdomGlobalLedgerV2
                     {
                         var building = entry.Totals;
                         string buildingKey = groupKey + "/" + building.Source.Id;
-                        var buildingRow = Add(buildingKey, entry.BuildingName, 2, currency, building.Net(c), true, building.Earned[c], building.Spent[c]);
+                        var buildingRow = Add(buildingKey, entry.BuildingName, 2, currency, building.Net(c), true, building.EarnedAt(c), building.SpentAt(c));
                         buildingRow.Icon = entry.BuildingIcon;
                         buildingRow.Target = entry.BuildingTarget;
                         if (!expanded.Contains(buildingKey) && string.IsNullOrEmpty(search))
@@ -185,13 +185,16 @@ namespace KingdomGlobalLedgerV2
                             continue;
                         bool any = false;
                         foreach (GameCurrency costCurrency in Enum.GetValues(typeof(GameCurrency)))
-                            if (building.Spent[(int)costCurrency] != 0 && costCurrency.IsUnlocked())
+                        {
+                            decimal spentCost = building.SpentAt((int)costCurrency);
+                            if (spentCost != 0m && costCurrency.IsUnlocked())
                             {
-                                var cost = Add(costs + "/" + (int)costCurrency, GlobalLedgerUi.CurrencyName(costCurrency), 4, costCurrency, -building.Spent[(int)costCurrency], false, 0, building.Spent[(int)costCurrency]);
+                                var cost = Add(costs + "/" + (int)costCurrency, GlobalLedgerUi.CurrencyName(costCurrency), 4, costCurrency, -spentCost, false, 0m, spentCost);
                                 cost.Icon = costCurrency.GetIcon();
                                 cost.IconOnly = true;
                                 any = true;
                             }
+                        }
 
                         if (!any)
                             VisibleRows.Add(new GlobalLedgerRowData(costs + "/empty", "No observed operating costs", 4));
@@ -212,7 +215,7 @@ namespace KingdomGlobalLedgerV2
                 var active = data.Where(t => t.Totals.ItemActive(id)).ToArray();
                 if (!showAll && active.Length == 0)
                     continue;
-                AddItem(root, GlobalLedgerUi.ItemName(item), 0, item, active.Sum(t => t.Totals.ItemNet(id)), true, active.Sum(t => t.Totals.ItemProduced(id)), active.Sum(t => t.Totals.ItemConsumed(id)));
+                AddItem(root, GlobalLedgerUi.ItemName(item), 0, item, GlobalLedgerMath.Sum(active, t => t.Totals.ItemNet(id)), true, GlobalLedgerMath.Sum(active, t => t.Totals.ItemProduced(id)), GlobalLedgerMath.Sum(active, t => t.Totals.ItemConsumed(id)));
                 if (!expanded.Contains(root) && string.IsNullOrEmpty(search))
                     continue;
                 if (active.Length == 0)
@@ -225,7 +228,7 @@ namespace KingdomGlobalLedgerV2
                 {
                     string groupKey = root + "/" + group.Key;
                     var container = group.First();
-                    var containerRow = AddItem(groupKey, container.GroupName, 1, item, group.Sum(t => t.Totals.ItemNet(id)), true, group.Sum(t => t.Totals.ItemProduced(id)), group.Sum(t => t.Totals.ItemConsumed(id)));
+                    var containerRow = AddItem(groupKey, container.GroupName, 1, item, GlobalLedgerMath.Sum(group, t => t.Totals.ItemNet(id)), true, GlobalLedgerMath.Sum(group, t => t.Totals.ItemProduced(id)), GlobalLedgerMath.Sum(group, t => t.Totals.ItemConsumed(id)));
                     containerRow.PrefixIcon = container.GroupTarget != null ? GlobalLedgerLocations.ContainerIcon() : null;
                     containerRow.Icon = container.GroupIcon;
                     containerRow.Target = container.GroupTarget;
@@ -247,10 +250,10 @@ namespace KingdomGlobalLedgerV2
                         bool any = false;
                         foreach (var costItem in GlobalLedgerUi.OrderedUnlockedItems())
                         {
-                            long spentItem = building.ItemConsumed(costItem.Identifier);
-                            if (spentItem != 0)
+                            decimal spentItem = building.ItemConsumed(costItem.Identifier);
+                            if (spentItem != 0m)
                             {
-                                var cost = AddItem(costs + "/item/" + costItem.Identifier, GlobalLedgerUi.ItemName(costItem), 4, costItem, -spentItem, false, 0, spentItem);
+                                var cost = AddItem(costs + "/item/" + costItem.Identifier, GlobalLedgerUi.ItemName(costItem), 4, costItem, -spentItem, false, 0m, spentItem);
                                 cost.Icon = costItem.GetIcon();
                                 cost.IconOnly = true;
                                 any = true;
@@ -258,13 +261,16 @@ namespace KingdomGlobalLedgerV2
                         }
 
                         foreach (GameCurrency costCurrency in Enum.GetValues(typeof(GameCurrency)))
-                            if (building.Spent[(int)costCurrency] != 0 && costCurrency.IsUnlocked())
+                        {
+                            decimal spentCost = building.SpentAt((int)costCurrency);
+                            if (spentCost != 0m && costCurrency.IsUnlocked())
                             {
-                                var cost = Add(costs + "/currency/" + (int)costCurrency, GlobalLedgerUi.CurrencyName(costCurrency), 4, costCurrency, -building.Spent[(int)costCurrency], false, 0, building.Spent[(int)costCurrency]);
+                                var cost = Add(costs + "/currency/" + (int)costCurrency, GlobalLedgerUi.CurrencyName(costCurrency), 4, costCurrency, -spentCost, false, 0m, spentCost);
                                 cost.Icon = costCurrency.GetIcon();
                                 cost.IconOnly = true;
                                 any = true;
                             }
+                        }
 
                         if (!any)
                             VisibleRows.Add(new GlobalLedgerRowData(costs + "/empty", "No observed operating costs", 4));
@@ -347,9 +353,10 @@ namespace KingdomGlobalLedgerV2
         IReadOnlyList<GlobalLedgerBookTotals> snapshot;
         readonly Vector3[] anchorCorners = new Vector3[4];
         float nextRefresh;
+        double snapshotElapsed;
         int tab, sortField;
         bool showAll, descending, frozen, controlsCollapsed;
-        string search = "", selectedKey = "basic/currency/0";
+        string search = "", selectedKey = "basic/currency/0", lastLocale = "";
         ViewMode viewMode = ViewMode.Basic;
         TimeUnit timeUnit = TimeUnit.Min;
         static readonly int[][] WindowOptions = { new[] { 1, 10, 30 }, new[] { 1, 5, 10 }, new[] { 1, 12, 24 } };
@@ -369,7 +376,8 @@ namespace KingdomGlobalLedgerV2
         internal string SelectedKey => selectedKey;
         internal bool ControlsCollapsed => controlsCollapsed;
         float PanelHeight => GlobalLedgerDesign.Height - (controlsCollapsed ? GlobalLedgerDesign.ControlsHeight : 0);
-        internal double Rate(long value) => (double)value / windowSeconds * UnitSeconds;
+        internal double Rate(decimal value) => GlobalLedgerMath.Rate(value, windowSeconds, UnitSeconds);
+        internal decimal RateDecimal(decimal value) => GlobalLedgerMath.ScaleRate(value, windowSeconds, UnitSeconds);
 
         void Fit()
         {
@@ -415,7 +423,7 @@ namespace KingdomGlobalLedgerV2
             design.Click("Sort direction", () => design.Choices("Sort direction", new[] { "Ascending", "Descending" }, value => { descending = value == 1; RefreshNow(); }));
             design.Click("Refresh interval/Decrease", () => SetRefresh(-1));
             design.Click("Refresh interval/Increase", () => SetRefresh(1));
-            design.Click("Freeze toggle", () => { frozen = !frozen; RefreshNow(); });
+            design.Click("Freeze toggle", () => { frozen = !frozen; if (!frozen) nextRefresh = 0; RefreshNow(); });
             design.Click("Show all checkbox", ToggleShowAll);
             design.Click("Show all label", ToggleShowAll);
             design.Click("Currencies tab", () => SelectTab(0));
@@ -454,7 +462,7 @@ namespace KingdomGlobalLedgerV2
         }
         void SetWindow(int index) { windowIndex = index; InvalidateWindow(); }
         void InvalidateWindow() { smoothing.Clear(); snapshot = null; RefreshNow(); }
-        void SetRefresh(int change) { refreshSeconds = Mathf.Clamp(refreshSeconds + change, 1, 10); RefreshNow(); }
+        void SetRefresh(int change) { refreshSeconds = Mathf.Clamp(refreshSeconds + change, 1, 10); nextRefresh = Time.unscaledTime + refreshSeconds; RefreshNow(); }
         void OnDestroy() => design?.Dispose();
 
         void OnEnable()
@@ -471,6 +479,7 @@ namespace KingdomGlobalLedgerV2
         {
             if (gameObject.activeSelf)
                 return;
+            nextRefresh = 0;
             FoundationApi.UiAccess.PlaySound(GameUiSound.WindowOpen);
             gameObject.SetActive(true);
             RefreshNow();
@@ -478,9 +487,21 @@ namespace KingdomGlobalLedgerV2
 
         internal void RefreshNow()
         {
+            string locale = GlobalLedgerLocations.CurrentLocale;
+            if (!string.Equals(locale, lastLocale, StringComparison.Ordinal))
+            {
+                lastLocale = locale;
+                locations.Reset();
+                smoothing.Clear();
+                snapshot = null;
+            }
             bool sample = snapshot == null || (!frozen && Time.unscaledTime >= nextRefresh);
-            if (sample) snapshot = book.Snapshot(windowSeconds);
-            nextRefresh = Time.unscaledTime + refreshSeconds;
+            if (sample)
+            {
+                snapshot = book.Snapshot(windowSeconds);
+                snapshotElapsed = book.Elapsed;
+                nextRefresh = Time.unscaledTime + refreshSeconds;
+            }
             UpdateControls();
             VisibleRows.Clear();
             if (viewMode == ViewMode.Basic) BuildBasic();
@@ -502,7 +523,9 @@ namespace KingdomGlobalLedgerV2
             content.sizeDelta = new Vector2(0, top);
             int count = VisibleRows.Count(value => !value.IsHeader && (value.GameCurrency.HasValue || value.Item != null));
             footer.text = count + (viewMode == ViewMode.Basic ? " active assets" : " sources");
-            status.text = "Last " + WindowAmount + " " + (timeUnit == TimeUnit.Sec ? "second" : timeUnit == TimeUnit.Hour ? "hour" : "minute") + (WindowAmount == 1 ? "" : "s") + "  ·  Per-" + (timeUnit == TimeUnit.Sec ? "second" : timeUnit == TimeUnit.Hour ? "hour" : "minute") + " rates" + (frozen ? "  ·  Frozen" : "") + (count == 0 && search.Length != 0 ? "  ·  No matching assets" : "");
+            string unitWord = timeUnit == TimeUnit.Sec ? "second" : timeUnit == TimeUnit.Hour ? "hour" : "minute";
+            string collecting = snapshotElapsed < windowSeconds ? "  \u00b7  Collecting " + Math.Max(0, (int)snapshotElapsed) + "/" + windowSeconds + "s" : "";
+            status.text = "Last " + WindowAmount + " " + unitWord + (WindowAmount == 1 ? "" : "s") + "  ·  Per-" + unitWord + " rates" + (frozen ? "  ·  Frozen" : "") + collecting + (count == 0 && search.Length != 0 ? "  ·  No matching assets" : "");
         }
 
         void UpdateControls()
@@ -541,7 +564,7 @@ namespace KingdomGlobalLedgerV2
         internal void ResetTree()
         {
             expanded.Clear();
-            snapshot = null; smoothing.Clear(); frozen = false;
+            snapshot = null; snapshotElapsed = 0; nextRefresh = 0; smoothing.Clear(); frozen = false;
             showAll = false;
             locations.Reset();
             scroll.verticalNormalizedPosition = 1;

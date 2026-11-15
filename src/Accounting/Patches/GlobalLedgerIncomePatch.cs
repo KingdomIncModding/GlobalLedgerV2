@@ -1,9 +1,4 @@
 using KingdomFoundation.Api;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
-using System.Text.RegularExpressions;
 
 namespace KingdomGlobalLedgerV2
 {
@@ -14,7 +9,7 @@ namespace KingdomGlobalLedgerV2
             if (!isIncome || amt <= 0)
                 return;
             if (GlobalLedgerObserver.current != null && GlobalLedgerObserver.current.Player == __instance)
-                GlobalLedgerObserver.current.Income[(int)c] += amt;
+                GlobalLedgerObserver.current.Income[(int)c] = GlobalLedgerMath.AddSaturated(GlobalLedgerObserver.current.Income[(int)c], amt);
             else if (GlobalLedgerObserver.current == null)
                 GlobalLedgerWarProgressPatch.RecordIncome(c, amt);
         }

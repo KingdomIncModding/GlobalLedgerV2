@@ -1,12 +1,5 @@
 using KingdomFoundation.Api;
-using System;
-using System.Collections.Generic;
-using System.Globalization;
-using System.Linq;
-using TMPro;
 using UnityEngine;
-using UnityEngine.EventSystems;
-using UnityEngine.UI;
 
 namespace KingdomGlobalLedgerV2
 {
@@ -23,7 +16,7 @@ namespace KingdomGlobalLedgerV2
         internal readonly int Depth;
         internal GameCurrency? GameCurrency;
         internal GameItemType Item;
-        internal long Amount, Income, Outflow;
+        internal decimal Amount, Income, Outflow;
         internal float Top;
         internal bool Expandable, Open;
         internal bool IconOnly, IsHeader;

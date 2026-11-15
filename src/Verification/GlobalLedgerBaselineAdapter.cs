@@ -50,30 +50,59 @@ namespace KingdomGlobalLedgerV2.Verification
             foreach (var totals in values)
             {
                 var source = Field(totals, "Source");
-                var earned = (long[])Field(totals, "Earned");
-                var spent = (long[])Field(totals, "Spent");
-                var items = (Dictionary<string, long>)Field(totals, "ItemEarned");
-                var consumed = (Dictionary<string, long>)Field(totals, "ItemSpent");
+                var earned = (decimal[])Field(totals, "earned");
+                var spent = (decimal[])Field(totals, "spent");
+                var items = (Dictionary<string, decimal>)Field(totals, "itemEarned");
+                var consumed = (Dictionary<string, decimal>)Field(totals, "itemSpent");
                 result[(string)Field(source, "Id")] = Encode(earned, spent, items, consumed);
             }
             return result;
         }
 
-        internal static string Encode(long[] earned, long[] spent, Dictionary<string, long> items, Dictionary<string, long> consumed)
-            => string.Join(",", earned) + "/" + string.Join(",", spent) + "/"
-                + string.Join(",", items.OrderBy(pair => pair.Key).Select(pair => pair.Key + ":" + pair.Value)) + "/"
-                + string.Join(",", consumed.OrderBy(pair => pair.Key).Select(pair => pair.Key + ":" + pair.Value));
+        internal static string Encode(decimal[] earned, decimal[] spent, Dictionary<string, decimal> items, Dictionary<string, decimal> consumed)
+        {
+            var earnedValues = earned ?? new decimal[GlobalLedgerBook.CurrencyCount];
+            var spentValues = spent ?? new decimal[GlobalLedgerBook.CurrencyCount];
+            var itemPairs = items != null
+                ? string.Join(",", items.OrderBy(pair => pair.Key).Select(pair => pair.Key + ":" + pair.Value))
+                : "";
+            var consumedPairs = consumed != null
+                ? string.Join(",", consumed.OrderBy(pair => pair.Key).Select(pair => pair.Key + ":" + pair.Value))
+                : "";
+            return string.Join(",", earnedValues) + "/" + string.Join(",", spentValues) + "/" + itemPairs + "/" + consumedPairs;
+        }
 
-        internal object NewLocations() => Activator.CreateInstance(locationsType, true);
+        internal static string Encode(GlobalLedgerBookTotals total)
+        {
+            var earned = Enumerable.Range(0, GlobalLedgerBook.CurrencyCount).Select(total.EarnedAt).ToArray();
+            var spent = Enumerable.Range(0, GlobalLedgerBook.CurrencyCount).Select(total.SpentAt).ToArray();
+            var items = total.EarnedItems.ToDictionary(pair => pair.Key, pair => pair.Value);
+            var consumed = total.SpentItems.ToDictionary(pair => pair.Key, pair => pair.Value);
+            return Encode(earned, spent, items, consumed);
+        }
+
+        internal object NewLocations()
+            => Activator.CreateInstance(locationsType, BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public, null, new object[] { null }, null);
 
         internal object LocationTotals(IEnumerable<GlobalLedgerBookTotals> totals)
         {
             var list = (IList)Activator.CreateInstance(typeof(List<>).MakeGenericType(totalsType));
             foreach (var total in totals)
             {
-                var source = Activator.CreateInstance(sourceType, BindingFlags.Instance | BindingFlags.NonPublic, null,
-                    new object[] { total.Source.Id, total.Source.TypeId, total.Source.TypeName, total.Source.Name }, null);
-                list.Add(Activator.CreateInstance(totalsType, BindingFlags.Instance | BindingFlags.NonPublic, null, new[] { source }, null));
+                var source = Activator.CreateInstance(sourceType, BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public, null,
+                    new object[]
+                    {
+                        total.Source.Id,
+                        total.Source.TypeId,
+                        total.Source.TypeName,
+                        total.Source.Name,
+                        total.Source.Locale,
+                        total.Source.RawDefaultLabel,
+                        total.Source.RawDetailKey,
+                        total.Source.RawFlowLabel,
+                        total.Source.Position
+                    }, null);
+                list.Add(Activator.CreateInstance(totalsType, BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public, null, new[] { source }, null));
             }
             return list;
         }

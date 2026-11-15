@@ -323,6 +323,12 @@ namespace KingdomGlobalLedgerV2.Verification
             }
             panel.Design.Node("Rate units/Decrease").GetComponent<Button>().onClick.Invoke();
             Check(panel.Unit == GlobalLedgerPanel.TimeUnit.Min && panel.WindowSeconds == 600, "Unit stepper preserves the selected position and updates its duration");
+            Check(panel.StatusText.Contains("Collecting "), "Partial window shows collecting progress (#4)");
+            float scheduledRefresh = (float)AccessTools.Field(typeof(GlobalLedgerPanel), "nextRefresh").GetValue(panel);
+            panel.Design.Node("Search").GetComponent<TMP_InputField>().text = "Ironworks";
+            panel.Design.Node("Search").GetComponent<TMP_InputField>().text = "";
+            float refreshAfterInteraction = (float)AccessTools.Field(typeof(GlobalLedgerPanel), "nextRefresh").GetValue(panel);
+            Check(Mathf.Approximately(scheduledRefresh, refreshAfterInteraction), "Search refreshes do not postpone the scheduled accounting sample timer (#3)");
             panel.Design.Node("Rate window 1").GetComponent<Button>().onClick.Invoke();
         }
         void Capture(string name)

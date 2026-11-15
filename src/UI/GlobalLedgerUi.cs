@@ -218,6 +218,17 @@ namespace KingdomGlobalLedgerV2
                 (long)(magnitude / 10000m), (long)(magnitude / 100m) % 100, (long)(magnitude % 100m));
         }
 
+        internal static (string Sign, decimal Gold, decimal Silver, decimal Copper) SplitGoldCompactDecimal(decimal value)
+        {
+            decimal magnitude = value == decimal.MinValue ? decimal.MaxValue : Math.Abs(value);
+            if (magnitude >= 10000m)
+                magnitude = Math.Round(magnitude / 100m, 0, MidpointRounding.AwayFromZero) * 100m;
+            decimal gold = Math.Floor(magnitude / 10000m);
+            decimal silver = Math.Floor(magnitude / 100m) % 100m;
+            decimal copper = magnitude % 100m;
+            return (value > 0m ? "+" : value < 0m ? "-" : "", gold, silver, copper);
+        }
+
         internal static (string Sign, long Gold, long Silver, long Copper) SplitGoldScaled(long value, GlobalLedgerPanel.TimeUnit unit, int divisor = 1)
         {
             if (divisor <= 0)

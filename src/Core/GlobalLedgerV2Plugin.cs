@@ -1,29 +1,34 @@
 using System;
-using System.Linq;
+using System.Collections.Generic;
 using BepInEx;
 using BepInEx.Configuration;
+using BepInEx.Logging;
 using KingdomFoundation.Api;
-using UnityEngine;
 
 namespace KingdomGlobalLedgerV2
 {
     [BepInPlugin(Id, "Global Ledger V2", Version)]
-    [BepInDependency("urakka.kingdominc.foundation", "0.14.2")]
+    [BepInDependency("urakka.kingdominc.foundation", "0.14.4")]
     [BepInDependency(GlobalLedgerEditionPriority.OriginalId, BepInDependency.DependencyFlags.SoftDependency)]
     public sealed class GlobalLedgerV2Plugin : BaseUnityPlugin
     {
-        void Awake()
+        void Awake() => InitializePlugin(null);
+
+        internal void InitializePlugin(Action beforeHandover)
         {
             Instance = this;
             try
             {
-                GlobalLedgerEditionPriority.UnloadOriginal(Logger);
                 Context = FoundationApi.ForMod(Id);
                 EnableRollingAverage = Config.Bind("Averages", "EnableRollingAverage", false, "Checking this box enables Rolling average .. makes the calculations less jumpy but not as accurate realtime.");
                 RollingAverageEntries = Config.Bind("Averages", "RollingAverageEntries", 3, "Number of entries to average when Rolling average is enabled.");
                 RegisterModConfig();
+                using (var assets = new GlobalLedgerDesignAssets())
+                    if (assets.Get("DecoTitleRed") == null)
+                        throw new InvalidOperationException("Missing Global Ledger HD UI asset DecoTitleRed.");
                 GlobalLedgerObserver.Install(hooks);
                 Locations.Install(hooks);
+                hooks.Add(FoundationApi.GameHooks.Subscribe(Id, GameHookPoints.Cancel, before: GlobalLedgerCancelDismissPatch.Before, priority: 100));
                 hooks.Add(FoundationApi.GameHooks.Subscribe(Id, GameHookPoints.UiVisibility, after: call => GlobalLedgerHudVisibilityPatch.Postfix(call.View)));
                 hooks.Add(FoundationApi.GameHooks.Subscribe(Id, GameHookPoints.Escape, before: call =>
                 {
@@ -32,26 +37,50 @@ namespace KingdomGlobalLedgerV2
                 }));
                 Navigation = gameObject.AddComponent<GlobalLedgerNavigation>();
                 Context.Register(new GlobalLedgerBarElement(this));
+                beforeHandover?.Invoke();
+                // Hand over from original edition only after HD initialization and Mod Bar registration succeed.
+                GlobalLedgerEditionPriority.UnloadOriginal(Logger);
             }
             catch
             {
                 Context?.Dispose();
+                Context = null;
                 ReleaseHooks();
-                Instance = null;
+                if (Navigation)
+                {
+                    Destroy(Navigation);
+                    Navigation = null;
+                }
+                if (Instance == this)
+                    Instance = null;
+                enabled = false;
                 throw;
             }
         }
 
-        public const string Id = "urakka.kingdominc.globalledgerv2", Version = "0.2.1";
+        public const string Id = "urakka.kingdominc.globalledgerv2", Version = "0.2.2";
         internal static GlobalLedgerV2Plugin Instance;
-        internal readonly GlobalLedgerBook Book = new GlobalLedgerBook(() => Time.realtimeSinceStartupAsDouble);
+        internal readonly GlobalLedgerBook Book = new GlobalLedgerBook(() => UnityEngine.Time.realtimeSinceStartupAsDouble);
         internal readonly GlobalLedgerLocations Locations = new GlobalLedgerLocations();
         internal GlobalLedgerPanel Panel;
         internal GlobalLedgerNavigation Navigation;
         internal FoundationModContext Context;
+        static ManualLogSource fallbackLogger;
+        internal static void LogWarningMessage(string message)
+        {
+            if (Instance != null)
+            {
+                Instance.Logger.LogWarning(message);
+                return;
+            }
+            if (fallbackLogger == null)
+                fallbackLogger = BepInEx.Logging.Logger.CreateLogSource("Global Ledger V2");
+            fallbackLogger.LogWarning(message);
+        }
+
         internal ConfigEntry<bool> EnableRollingAverage;
         internal ConfigEntry<int> RollingAverageEntries;
-        System.Collections.Generic.List<IDisposable> hooks = new System.Collections.Generic.List<IDisposable>();
+        readonly List<IDisposable> hooks = new List<IDisposable>();
         GameKingdom player;
         void ReleaseHooks()
         {
@@ -81,6 +110,7 @@ namespace KingdomGlobalLedgerV2
         void OnDestroy()
         {
             Context?.Dispose();
+            Context = null;
             ReleaseHooks();
             GlobalLedgerObserver.Reset();
             if (Navigation)

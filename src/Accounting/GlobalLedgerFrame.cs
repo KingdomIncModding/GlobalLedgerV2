@@ -1,9 +1,5 @@
 using KingdomFoundation.Api;
-using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
-using System.Text.RegularExpressions;
 
 namespace KingdomGlobalLedgerV2
 {
@@ -14,10 +10,12 @@ namespace KingdomGlobalLedgerV2
         internal GameKingdom Player;
         internal GlobalLedgerObservationPlan Plan;
         internal bool CaptureOutputs;
-        internal readonly long[] Income = new long[9], Spending = new long[9], Tray = new long[9];
+        internal bool CustomNode;
+        internal readonly decimal[] Income = new decimal[9], Spending = new decimal[9], Tray = new decimal[9];
         internal readonly HashSet<GameInventoryItem> OutputsBefore = new HashSet<GameInventoryItem>();
         internal readonly List<(GameInventoryItem item, GameItemType type)> VisitorsBefore = new List<(GameInventoryItem, GameItemType)>();
+        internal readonly List<GameInventoryItem> ConsumedCandidates = new List<GameInventoryItem>();
         internal readonly HashSet<GameInventoryItem> RemainingVisitors = new HashSet<GameInventoryItem>();
-        internal readonly Dictionary<string, long> Produced = new Dictionary<string, long>(), Consumed = new Dictionary<string, long>();
+        internal readonly Dictionary<string, decimal> Produced = new Dictionary<string, decimal>(), Consumed = new Dictionary<string, decimal>();
     }
 }

@@ -1,6 +1,7 @@
 using KingdomFoundation.Api;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text.RegularExpressions;
 using UnityEngine;
@@ -10,6 +11,7 @@ namespace KingdomGlobalLedgerV2
 {
     internal sealed class GlobalLedgerLocations
     {
+        internal static string CurrentLocale => FoundationApi.Presentation?.CurrentLocale ?? CultureInfo.CurrentUICulture.Name;
         internal static string CleanLabel(string value)
         {
             if (string.IsNullOrWhiteSpace(value))
@@ -57,6 +59,8 @@ namespace KingdomGlobalLedgerV2
                 after: call => Invalidate()));
             hooks.Add(FoundationApi.GameHooks.Subscribe(GlobalLedgerV2Plugin.Id, GameHookPoints.BuildingClearPorts,
                 after: call => Invalidate()));
+            hooks.Add(FoundationApi.GameHooks.Subscribe(GlobalLedgerV2Plugin.Id, GameHookPoints.SpawnerIcon,
+                after: call => Invalidate()));
         }
 
         internal void Invalidate() => dirty = true;
@@ -89,7 +93,10 @@ namespace KingdomGlobalLedgerV2
                 parents.Clear();
                 foreach (var flow in flows)
                     foreach (var building in flow.Buildings)
+                    {
                         parents[building] = flow;
+                        GlobalLedgerCustomNodeHooks.ObserveBuilding(building);
+                    }
                 foreach (var stale in containerIds.Keys.Where(container => !flows.Any(flow => flow.Decorations.Contains(container))).ToArray())
                     containerIds.Remove(stale);
             }
@@ -105,6 +112,7 @@ namespace KingdomGlobalLedgerV2
             unchecked
             {
                 ulong value = 14695981039346656037UL;
+                Mix(ref value, CurrentLocale);
                 foreach (var flow in flows)
                 {
                     Mix(ref value, flow.GetHashCode());
@@ -116,6 +124,11 @@ namespace KingdomGlobalLedgerV2
                         Mix(ref value, building.Label);
                         Mix(ref value, building.Position.GetHashCode());
                         Mix(ref value, building.Size.GetHashCode());
+                        Mix(ref value, building.IconName);
+                        Sprite worldIcon = building.World ? FoundationApi.WorkspaceVisuals.Icon(building.World)?.sprite : null;
+                        Mix(ref value, worldIcon ? worldIcon.GetInstanceID() : 0);
+                        Mix(ref value, building.Production.RecipeDisplayName);
+                        Mix(ref value, building.SpawnedItem?.Identifier);
                     }
                     Mix(ref value, flow.DecorationCount);
                     foreach (var deco in flow.Decorations)
@@ -146,6 +159,26 @@ namespace KingdomGlobalLedgerV2
         }
 
         int nextId;
+        static Sprite LiveBuildingIcon(WorkspaceObject building)
+        {
+            if (building == null)
+                return null;
+            Sprite worldSprite = building.World ? FoundationApi.WorkspaceVisuals.Icon(building.World)?.sprite : null;
+            if (worldSprite)
+                return worldSprite;
+            if (building.IsSpawner && building.SpawnedItem != null && !string.IsNullOrEmpty(building.SpawnedItem.IconName))
+            {
+                try
+                {
+                    Sprite itemSprite = building.SpawnedItem.GetIcon();
+                    if (itemSprite)
+                        return itemSprite;
+                }
+                catch { }
+            }
+            return building.Icon;
+        }
+
         static Sprite DefaultIcon(WorkspaceObject container)
         {
             if (container?.World)
@@ -224,12 +257,13 @@ namespace KingdomGlobalLedgerV2
                 PlacementBuildCount++;
             }
             var result = new List<GlobalLedgerLocationEntry>(totals.Count);
+            string locale = CurrentLocale;
             foreach (var item in totals)
             {
                 var entry = placements[item.Source.Id];
                 entry.Totals = item;
                 if (entry.BuildingTarget == null)
-                    entry.BuildingName = item.Source.Name;
+                    entry.BuildingName = item.Source.LocalizedName(locale);
                 result.Add(entry);
             }
             return result;
@@ -294,7 +328,7 @@ namespace KingdomGlobalLedgerV2
                 var entry = new GlobalLedgerLocationEntry
                 {
                     Totals = item,
-                    BuildingName = item.Source.Name
+                    BuildingName = item.Source.LocalizedName(CurrentLocale)
                 };
                 if (!live.TryGetValue(item.Source.Id, out var target))
                 {
@@ -319,7 +353,7 @@ namespace KingdomGlobalLedgerV2
                 var building = target.Building;
                 entry.BuildingTarget = target;
                 entry.BuildingName = FoundationApi.GameInfo.Translate(building.Label) + " [" + building.Position.x + ", " + building.Position.y + "]";
-                entry.BuildingIcon = building.Icon;
+                entry.BuildingIcon = LiveBuildingIcon(building);
                 // A machine overlapping nested/overlapping frames belongs once to the
                 // smallest frame. This matches native overlap-based container grouping
                 // while avoiding double-counted net totals in overlapping containers.
@@ -337,7 +371,7 @@ namespace KingdomGlobalLedgerV2
                     entry.GroupKey = containerIds[container];
                     entry.GroupName = containerNames.TryGetValue(container, out var name) ? name : ("Container [" + container.Position.x + ", " + container.Position.y + "]");
                     var sticker = flow.Decorations.Where(d => d.HasSticker && Overlap(container, d.Position, Vector2Int.RoundToInt(d.Size))).OrderBy(d => (d.Position - container.Position).sqrMagnitude).FirstOrDefault();
-                    entry.GroupIcon = sticker?.StickerSprite ?? building.Icon ?? DefaultIcon(container);
+                    entry.GroupIcon = sticker?.StickerSprite ?? entry.BuildingIcon ?? DefaultIcon(container);
                     entry.GroupTarget = new GlobalLedgerTarget(flow, container: container);
                 }
 

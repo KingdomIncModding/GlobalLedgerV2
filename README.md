@@ -1,6 +1,6 @@
 # Global Ledger V2 - Cleaner, Crisper HD
 
-[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/S6V62AX30M)
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/urakkaamyx/tip)
 
 **The cleaner, crisper HD edition of Global Ledger for Kingdom Inc 1.0.14.**
 
@@ -78,4 +78,4 @@ Created by **Urakka** (rockyamyx). Native game artwork belongs to its respective
 
 If you enjoy these Kingdom Inc mods and tools, consider supporting development on Ko-fi!
 
-[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/S6V62AX30M)
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/urakkaamyx/tip)

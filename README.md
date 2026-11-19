@@ -1,5 +1,7 @@
 # Global Ledger V2 - Cleaner, Crisper HD
 
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/S6V62AX30M)
+
 **The cleaner, crisper HD edition of Global Ledger for Kingdom Inc 1.0.14.**
 
 The original Global Ledger remains available as the main download on the [same Nexus page](https://www.nexusmods.com/kingdominc/mods/19). Choose **Global Ledger V2 - Cleaner Crisper HD** under Optional Files for this redesigned edition. Installing HD uses a separate plugin folder and does not overwrite the original.
@@ -71,3 +73,9 @@ Close the game and remove `BepInEx/plugins/GlobalLedgerV2/`. If the original Glo
 Created by **Urakka** (rockyamyx). Native game artwork belongs to its respective owners.
 
 [HD source code](https://github.com/KingdomIncModding/GlobalLedgerV2) | [Original Global Ledger](https://github.com/KingdomIncModding/GlobalLedger)
+
+## Support
+
+If you enjoy these Kingdom Inc mods and tools, consider supporting development on Ko-fi!
+
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/S6V62AX30M)
